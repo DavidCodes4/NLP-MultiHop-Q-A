@@ -79,18 +79,8 @@ def translate(
     if source_lang == target_lang:
         return text
 
-    # ── 1. Try local trained model ─────────────────────────────────────────
-    try:
-        from .local_translator import translate_local
-        local_result = translate_local(text, source_lang=source_lang, target_lang=target_lang)
-        if local_result:
-            logger.debug("Translator: used local model (%s→%s).", source_lang, target_lang)
-            return local_result
-    except Exception as exc:
-        logger.debug("Translator: local model unavailable (%s), falling back to DeepSeek.", exc)
-
-    # ── 2. Fall back to DeepSeek ───────────────────────────────────────────
-    logger.info("Translator: using DeepSeek fallback (%s→%s).", source_lang, target_lang)
+    # ── 1. Try DeepSeek first (better quality) ────────────────────────────
+    logger.info("Translator: using DeepSeek (%s→%s).", source_lang, target_lang)
     target_name = _LANG_NAMES.get(target_lang, target_lang)
     system = _TRANSLATE_SYSTEM.format(target_lang=target_name)
 
@@ -102,13 +92,26 @@ def translate(
             temperature=0.1,
             max_tokens=800,
         )
-        if not result or not result.strip():
-            logger.warning("Translator: DeepSeek returned empty — keeping original.")
-            return text
-        return result.strip()
+        if result and result.strip():
+            logger.debug("Translator: DeepSeek succeeded (%s→%s).", source_lang, target_lang)
+            return result.strip()
+        logger.warning("Translator: DeepSeek returned empty, trying local model.")
     except Exception as exc:
-        logger.warning("Translator: DeepSeek fallback also failed (%s) — keeping original.", exc)
-        return text
+        logger.warning("Translator: DeepSeek failed (%s), trying local model.", exc)
+
+    # ── 2. Fall back to locally trained Transformer ────────────────────────
+    try:
+        from .local_translator import translate_local
+        local_result = translate_local(text, source_lang=source_lang, target_lang=target_lang)
+        if local_result:
+            logger.debug("Translator: used local model fallback (%s→%s).", source_lang, target_lang)
+            return local_result
+    except Exception as exc:
+        logger.debug("Translator: local model also failed (%s).", exc)
+
+    # ── 3. Return original text unchanged ──────────────────────────────────
+    logger.warning("Translator: all methods failed (%s→%s) — keeping original.", source_lang, target_lang)
+    return text
 
 
 def translate_answer(

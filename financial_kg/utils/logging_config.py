@@ -54,21 +54,24 @@ def setup_logging(
     
     root_logger.addHandler(console_handler)
     
-    # File handler (if log_file specified)
-    if log_file:
-        file_path = log_path / log_file
+    # File handler (only create if explicitly requested or log_file given)
+    if log_file is not None or log_dir != "logs":
+        if log_file:
+            file_path = log_path / log_file
+        else:
+            # Create timestamped log file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_path = log_path / f"financial_kg_{timestamp}.log"
+
+        file_handler = logging.FileHandler(file_path, mode='a')
+        file_handler.setLevel(logging.DEBUG)  # File gets all messages
+        file_handler.setFormatter(detailed_formatter)
+        root_logger.addHandler(file_handler)
+
+        # Log the setup
+        root_logger.info(f"Logging initialized - Level: {level}, File: {file_path}")
     else:
-        # Create timestamped log file
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = log_path / f"financial_kg_{timestamp}.log"
-    
-    file_handler = logging.FileHandler(file_path, mode='a')
-    file_handler.setLevel(logging.DEBUG)  # File gets all messages
-    file_handler.setFormatter(detailed_formatter)
-    root_logger.addHandler(file_handler)
-    
-    # Log the setup
-    root_logger.info(f"Logging initialized - Level: {level}, File: {file_path}")
+        root_logger.info(f"Logging initialized - Level: {level}, console only")
 
 
 def get_logger(name: str) -> logging.Logger:

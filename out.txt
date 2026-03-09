@@ -1,0 +1,32 @@
+ta->en (local model):
+============================================================
+INITIALIZING MULTILINGUAL TRANSFORMER INFERENCE
+============================================================
+
+[1/2] Loading tokenizer from: D:\STUDIES\Sem 6\NLP\Project\NLP-MultiHop-Q-A\translation_model\tokenizer\multilingual_indic-3.model
+  ✓ Tokenizer loaded
+  Vocabulary size: 100000
+
+[2/2] Loading model from: D:\STUDIES\Sem 6\NLP\Project\NLP-MultiHop-Q-A\translation_model\checkpoints\final_model.pt
+
+============================================================
+TRANSFORMER ENCODER-DECODER MODEL
+============================================================
+  Architecture: Base Model (6+6 layers)
+  Model dimension: 768
+  Total parameters: 176,040,960
+  Trainable parameters: 176,040,960
+  Model size: 671.54 MB
+============================================================
+  ✓ Model loaded successfully
+  Device: cpu
+  Total parameters: 176,040,960 (176.0M)
+
+============================================================
+✓ READY FOR INFERENCE!
+============================================================
+
+   What do US and Indian markets?
+
+en->ta (local model):
+   இந்தியப் உற்பத்திக் விலைக்கு அமெரிக்க வரி, பா. , மற்றும் என். எஸ். யில் உள்ள இந்திய ஏற்றுமதி நிறுவனங்கள் மீது negative நடவடிக்கை எடுக்கலாம்.

@@ -192,9 +192,20 @@ class EntityLinker:
     @staticmethod
     def _get_aliases(query: str) -> List[str]:
         q = query.lower().strip()
+        # 1) Exact key match or key contained in query
         for key, aliases in _ALIASES.items():
             if key == q or q.startswith(key + " ") or q.endswith(" " + key):
                 return aliases
             if f" {key} " in f" {q} ":
                 return aliases
-        return []
+        # 2) Token-level: if any single token in q matches a key, collect all aliases
+        tokens = q.split()
+        all_aliases: List[str] = []
+        seen: set = set()
+        for tok in tokens:
+            if tok in _ALIASES:
+                for a in _ALIASES[tok]:
+                    if a not in seen:
+                        seen.add(a)
+                        all_aliases.append(a)
+        return all_aliases

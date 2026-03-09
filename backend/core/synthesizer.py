@@ -39,7 +39,7 @@ class AnswerSynthesizer:
             candidates = result.answer_candidates
             if candidates:
                 return f"Based on the KG, the answer is: **{', '.join(candidates)}**."
-            return "No specific answer found in the Knowledge Graph."
+            return "I could not find a direct answer in the Knowledge Graph. Please try a more specific query."
 
         # ── Collect triples from ALL top paths for richer context ───────────
         # For multi-hop, include triples from all top-k paths (deduped)
