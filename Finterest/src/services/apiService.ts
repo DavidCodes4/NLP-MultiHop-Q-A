@@ -65,8 +65,8 @@ export const fetchFinancialNews = async (): Promise<NewsArticle[]> => {
   try {
     const response = await apiClient.get<NewsArticle[]>('/financial-news');
     return response.data;
-  } catch {
-    // Return mock data for development / when API is unavailable
+  } catch (err: any) {
+    console.error('[fetchFinancialNews] API call failed:', err?.message || err);
     return getMockNews();
   }
 };
@@ -129,8 +129,19 @@ export const sendChatMessage = async (payload: ChatRequest): Promise<ChatRespons
       confidence: data.confidence,
       warnings: data.warnings,
     };
-  } catch {
-    return getMockChatResponse(payload.query);
+  } catch (err: any) {
+    // Log the actual error so we can debug network issues
+    const status = err?.response?.status;
+    const detail = err?.response?.data?.detail || err?.message || String(err);
+    console.error('[sendChatMessage] API call failed:', status, detail);
+    // Return a clear error message instead of a misleading mock
+    return {
+      answer: `⚠️ Could not reach the backend (${status ? `HTTP ${status}` : detail}). Make sure the server is running and the IP in apiService.ts is correct.`,
+      answer_lang: 'en',
+      explanation: '',
+      confidence: 0,
+      warnings: [`Backend unreachable: ${detail}`],
+    };
   }
 };
 

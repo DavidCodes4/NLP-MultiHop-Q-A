@@ -155,6 +155,43 @@ _linker        = EntityLinker(_adapter)
 
 router = APIRouter()
 
+# ── Query normalization (synonym expansion before KG search) ───────────────
+# Maps phrases that appear in translated queries → canonical KG-friendly terms
+_QUERY_SYNONYMS = [
+    # Trade / policy
+    (r"\bus\s+taxes?\b",           "US tariffs"),
+    (r"\bamerican\s+taxes?\b",     "US tariffs"),
+    (r"\bimport\s+duties\b",       "US tariffs"),
+    (r"\btariff\s+war\b",          "US tariffs"),
+    (r"\btrade\s+war\b",           "US tariffs"),
+    (r"\btrade\s+tensions?\b",     "US tariffs"),
+    (r"\btrump\s+taxes?\b",        "Trump tariffs"),
+    (r"\breciprocal\s+tariffs?\b", "reciprocal tariff rate"),
+    # Markets
+    (r"\bindian\s+markets?\b",     "Indian stock market"),
+    (r"\bindian\s+stocks?\b",      "Indian stock market"),
+    (r"\bstock\s+markets?\b",      "stock market"),
+    (r"\bequity\s+markets?\b",     "stock market"),
+    (r"\bshare\s+markets?\b",      "stock market"),
+    # Monetary
+    (r"\binterest\s+rates?\b",     "repo rate"),
+    (r"\brate\s+cuts?\b",          "repo rate cut"),
+    (r"\bmonetary\s+policy\b",     "RBI monetary policy"),
+    # Macro
+    (r"\bindian\s+economy\b",      "India Inc"),
+    (r"\bcrude\s+oil\b",           "crude oil prices"),
+]
+
+import re as _re
+
+def _normalize_financial_query(query: str) -> str:
+    """Replace synonym phrases with canonical KG terms (case-insensitive)."""
+    result = query
+    for pattern, replacement in _QUERY_SYNONYMS:
+        result = _re.sub(pattern, replacement, result, flags=_re.IGNORECASE)
+    return result
+
+
 # ── Request / Response models ─────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
@@ -240,6 +277,9 @@ async def chat(req: ChatRequest):
     session = get_session(req.session_id)
     ctx = session.get_context()
 
+    # 2b — Normalize common financial synonyms before decomposition/traversal
+    query_en = _normalize_financial_query(query_en)
+
     # 3 — Question decomposition
     plan = _decomposer.decompose(query_en, session_context=ctx)
 
@@ -267,6 +307,35 @@ async def chat(req: ChatRequest):
     answer_text = _synthesizer.synthesize(
         traversal_result, query_en, plan.question_type
     )
+
+    # 6b — If KG found nothing, use DeepSeek as a general financial fallback
+    _NO_ANSWER_PHRASES = (
+        "I could not find a relevant answer",
+        "I could not find a direct answer",
+        "No specific answer found",
+    )
+    if any(phrase in answer_text for phrase in _NO_ANSWER_PHRASES):
+        try:
+            from backend.core.gemini_client import _generate, _SYNTHESIZE_SYSTEM
+            fallback_answer = _generate(
+                _SYNTHESIZE_SYSTEM,
+                (
+                    f"Question type: {plan.question_type}\n"
+                    f"User question: {query_en}\n\n"
+                    "Knowledge Graph triples:\n  (none — KG did not find matching entities)\n\n"
+                    "Use your general financial knowledge to answer the question about Indian stock markets "
+                    "and financial news. Be concise and factual. If this is about tariffs/taxes and markets, "
+                    "explain the general macroeconomic relationship."
+                ),
+                temperature=0.4,
+                max_tokens=350,
+            )
+            if fallback_answer and len(fallback_answer) > 30:
+                answer_text = fallback_answer
+                warnings.append("Answer generated from AI knowledge (KG entities not matched). May not reflect latest data.")
+        except Exception as fb_exc:
+            import logging as _l
+            _l.getLogger(__name__).warning("DeepSeek fallback failed: %s", fb_exc)
 
     # 7 — Explanation
     raw_steps: List[str] = []
